@@ -222,7 +222,7 @@ func Intersect(ray *Ray, t *float64, id *int) bool {
 	return *t < inf
 }
 
-func Radiance(ray *Ray, depth int) Vec {
+func Radiance(ray *Ray, depth int, rnd *rand.Rand) Vec {
 
 	var t, p float64
 	var id int
@@ -247,7 +247,7 @@ func Radiance(ray *Ray, depth int) Vec {
 		p = f.z
 	}
 	if depth > 4 {
-		if rand.Float64() < p {
+		if rnd.Float64() < p {
 			f = SMul(f, 1.0/p)
 		} else {
 			return *obj.Emission
@@ -255,8 +255,8 @@ func Radiance(ray *Ray, depth int) Vec {
 	}
 	if obj.Reflection == DIFF {
 		var r1, r2, r2s float64
-		r1 = 2 * math.Pi * rand.Float64()
-		r2 = rand.Float64()
+		r1 = 2 * math.Pi * rnd.Float64()
+		r2 = rnd.Float64()
 		r2s = math.Sqrt(r2)
 		var w, u, v, d Vec
 		w = nl
@@ -267,9 +267,9 @@ func Radiance(ray *Ray, depth int) Vec {
 		}
 		v = Cross(w, u)
 		d = Norm(Add(Add(SMul(u, math.Cos(r1)*r2s), SMul(v, math.Sin(r1)*r2s)), SMul(w, math.Sqrt(1-r2))))
-		return Add(*obj.Emission, Mul(f, Radiance(&Ray{x, d}, depth+1)))
+		return Add(*obj.Emission, Mul(f, Radiance(&Ray{x, d}, depth+1, rnd)))
 	} else if obj.Reflection == SPEC {
-		return Add(*obj.Emission, Mul(f, Radiance(&Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}, depth+1)))
+		return Add(*obj.Emission, Mul(f, Radiance(&Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}, depth+1, rnd)))
 	}
 	var reflRay *Ray = &Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}
 	var into bool = Dot(n, nl) > 0
@@ -283,7 +283,7 @@ func Radiance(ray *Ray, depth int) Vec {
 	ddn = Dot(ray.Direction, nl)
 	cos2t = 1 - nnt*nnt*(1-ddn*ddn)
 	if cos2t < 0 {
-		return Add(*obj.Emission, Mul(f, Radiance(reflRay, depth+1)))
+		return Add(*obj.Emission, Mul(f, Radiance(reflRay, depth+1, rnd)))
 	}
 	var tdir Vec = SMul(ray.Direction, nnt)
 	if into {
@@ -305,51 +305,19 @@ func Radiance(ray *Ray, depth int) Vec {
 	RP = Re / P
 	TP = Tr / (1 - P)
 	if depth > 1 {
-		if rand.Float64() < P {
-			return Add(*obj.Emission, Mul(f, SMul(Radiance(reflRay, depth+1), RP)))
+		if rnd.Float64() < P {
+			return Add(*obj.Emission, Mul(f, SMul(Radiance(reflRay, depth+1, rnd), RP)))
 		} else {
-			return Add(*obj.Emission, Mul(f, SMul(Radiance(&Ray{x, tdir}, depth+1), TP)))
+			return Add(*obj.Emission, Mul(f, SMul(Radiance(&Ray{x, tdir}, depth+1, rnd), TP)))
 		}
 	}
-	return Add(*obj.Emission, Mul(f, SMul(Add(Radiance(reflRay, depth+1),
-		Radiance(&Ray{x, tdir}, depth+1)), Tr)))
+	return Add(*obj.Emission, Mul(f, SMul(Add(Radiance(reflRay, depth+1, rnd),
+		Radiance(&Ray{x, tdir}, depth+1, rnd)), Tr)))
 }
 
 var w, h, samps int = 1024, 768, 1
 var cam *Ray
 var colors []Vec
-
-func renderPixel(x int, y int, cx Vec, cy Vec) {
-	var r1, r2 float64
-	var dx, dy float64
-	var radiance Vec
-	var direction Vec
-
-	for sy, i := 0, (h-y-1)*w+x; sy < 2; sy++ {
-		for sx := 0; sx < 2; sx++ {
-			radiance.x = 0
-			radiance.y = 0
-			radiance.z = 0
-			for s := 0; s < samps; s++ {
-				r1, r2 = 2*rand.Float64(), 2*rand.Float64()
-				if r1 < 1 {
-					dx = math.Sqrt(r1) - 1
-				} else {
-					dx = 1 - math.Sqrt(2-r1)
-				}
-				if r2 < 1 {
-					dy = math.Sqrt(r2) - 1
-				} else {
-					dy = 1 - math.Sqrt(2-r2)
-				}
-				direction = Add(Add(SMul(cx, ((float64(sx)*.5+dx)/2+float64(x))/float64(w)-.5),
-					SMul(cy, ((float64(sy)+.5+dy)/2+float64(y))/float64(h)-.5)), cam.Direction)
-				radiance = Add(radiance, SMul(Radiance(&Ray{Add(cam.Origin, SMul(direction, 140.0)), Norm(direction)}, 0), 1.0/float64(samps)))
-			}
-			colors[i] = Add(colors[i], SMul(radiance, 0.25))
-		}
-	}
-}
 
 func main() {
 	flag.Parse()
@@ -378,6 +346,7 @@ func main() {
 				radiance  Vec
 				direction Vec
 			)
+			rnd := rand.New(rand.NewSource(123 + int64(i)*13))
 			for y := i; y < h; y += threads_num {
 				for x := 0; x < w; x++ {
 					for sy, i := 0, (h-y-1)*w+x; sy < 2; sy++ {
@@ -386,7 +355,7 @@ func main() {
 							radiance.y = 0
 							radiance.z = 0
 							for s := 0; s < samps; s++ {
-								r1, r2 = 2*rand.Float64(), 2*rand.Float64()
+								r1, r2 = 2*rnd.Float64(), 2*rnd.Float64()
 								if r1 < 1 {
 									dx = math.Sqrt(r1) - 1
 								} else {
@@ -399,7 +368,7 @@ func main() {
 								}
 								direction = Add(Add(SMul(cx, ((float64(sx)*.5+dx)/2+float64(x))/float64(w)-.5),
 									SMul(cy, ((float64(sy)+.5+dy)/2+float64(y))/float64(h)-.5)), cam.Direction)
-								radiance = Add(radiance, SMul(Radiance(&Ray{Add(cam.Origin, SMul(direction, 140.0)), Norm(direction)}, 0), fsamps))
+								radiance = Add(radiance, SMul(Radiance(&Ray{Add(cam.Origin, SMul(direction, 140.0)), Norm(direction)}, 0, rnd), fsamps))
 							}
 							colors[i] = Add(colors[i], SMul(radiance, 0.25))
 						}
