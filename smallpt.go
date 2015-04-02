@@ -12,11 +12,14 @@ import (
 	"time"
 )
 
+const (
+	EPS = 1e-4
+	INF = 1e20
+)
+
 type Vec struct {
 	x, y, z float64
 }
-
-var NULLVEC *Vec = &Vec{0.0, 0.0, 0.0}
 
 func (this *Vec) Zero() {
 	this.x = 0.0
@@ -28,21 +31,21 @@ func (this *Vec) String() string {
 	return fmt.Sprintf("{%f, %f, %f}", this.x, this.y, this.z)
 }
 
-func (this *Vec) Add(v *Vec) *Vec {
+func (this *Vec) Add(v Vec) *Vec {
 	this.x += v.x
 	this.y += v.y
 	this.z += v.z
 	return this
 }
 
-func (this *Vec) Sub(v *Vec) *Vec {
+func (this *Vec) Sub(v Vec) *Vec {
 	this.x -= v.x
 	this.y -= v.y
 	this.z -= v.z
 	return this
 }
 
-func (this *Vec) Mul(v *Vec) *Vec {
+func (this *Vec) Mul(v Vec) *Vec {
 	this.x *= v.x
 	this.y *= v.y
 	this.z *= v.z
@@ -64,22 +67,17 @@ func (this *Vec) Norm() *Vec {
 	return this
 }
 
-func (this *Vec) Dot(v *Vec) float64 {
+func (this Vec) Dot(v Vec) float64 {
 	return this.x*v.x + this.y*v.y + this.z*v.z
 }
 
-func (this *Vec) Cross(v *Vec) *Vec {
-	var x, y float64
-	x = this.y*v.z - this.z*v.y
-	y = this.z*v.x - this.x*v.z
+func (this *Vec) Cross(v Vec) *Vec {
+	x := this.y*v.z - this.z*v.y
+	y := this.z*v.x - this.x*v.z
 	this.z = this.x*v.y - this.y*v.x
 	this.x = x
 	this.y = y
 	return this
-}
-
-func (this *Vec) Clone() *Vec {
-	return &Vec{this.x, this.y, this.z}
 }
 
 func (this *Vec) Clamp() *Vec {
@@ -160,85 +158,87 @@ const (
 
 type Sphere struct {
 	Radius                    float64
-	Position, Emission, Color *Vec
+	Position, Emission, Color Vec
 	Reflection                int
 }
 
 func (this *Sphere) Intersect(ray *Ray) float64 {
-	//op := this.Position.Clone().Sub(ray.Origin)
-	op := Sub(*this.Position, ray.Origin)
-	var eps float64 = 1e-4
-	var b float64 = Dot(op, ray.Direction)
-	var det float64 = b*b - Dot(op, op) + this.Radius*this.Radius
-	if det < 0.0 {
+	op := Sub(this.Position, ray.Origin)
+	b := Dot(op, ray.Direction)
+	det := b*b - Dot(op, op) + this.Radius*this.Radius
+	if det < 0 {
 		return 0.0
-	} else {
-		det = math.Sqrt(det)
 	}
-	if (b - det) > eps {
-		return b - det
-	} else if (b + det) > eps {
-		return b + det
+	det = math.Sqrt(det)
+	t := b - det
+	if t > EPS {
+		return t
+	}
+	t = b + det
+	if t > EPS {
+		return t
 	}
 	return 0.0
 }
 
-var spheres []*Sphere = []*Sphere{
-	&Sphere{1e5, &Vec{1e5 + 1, 40.8, 81.6}, &Vec{0.0, 0.0, 0.0}, &Vec{.75, .25, .25}, DIFF},   //Left
-	&Sphere{1e5, &Vec{-1e5 + 99, 40.8, 81.6}, &Vec{0.0, 0.0, 0.0}, &Vec{.25, .25, .75}, DIFF}, //Rght
-	&Sphere{1e5, &Vec{50, 40.8, 1e5}, &Vec{0.0, 0.0, 0.0}, &Vec{.75, .75, .75}, DIFF},         //Back
-	&Sphere{1e5, &Vec{50, 40.8, -1e5 + 170}, &Vec{0.0, 0.0, 0.0}, &Vec{0.0, 0.0, 0.0}, DIFF},  //Frnt
-	&Sphere{1e5, &Vec{50, 1e5, 81.6}, &Vec{0.0, 0.0, 0.0}, &Vec{.75, .75, .75}, DIFF},         //Botm
-	&Sphere{1e5, &Vec{50, -1e5 + 81.6, 81.6}, &Vec{0.0, 0.0, 0.0}, &Vec{.75, .75, .75}, DIFF}, //Top
-	&Sphere{16.5, &Vec{27, 16.5, 47}, &Vec{0.0, 0.0, 0.0}, &Vec{.999, .999, .999}, SPEC},      //Mirr
-	&Sphere{16.5, &Vec{73, 16.5, 78}, &Vec{0.0, 0.0, 0.0}, &Vec{.999, .999, .999}, REFR},      //Glas
-	&Sphere{600, &Vec{50, 681.6 - .27, 81.6}, &Vec{12, 12, 12}, &Vec{0.0, 0.0, 0.0}, DIFF},    //Lite
+var spheres = []*Sphere{
+	&Sphere{1e5, Vec{1e5 + 1, 40.8, 81.6}, Vec{0.0, 0.0, 0.0}, Vec{.75, .25, .25}, DIFF},   //Left
+	&Sphere{1e5, Vec{-1e5 + 99, 40.8, 81.6}, Vec{0.0, 0.0, 0.0}, Vec{.25, .25, .75}, DIFF}, //Rght
+	&Sphere{1e5, Vec{50, 40.8, 1e5}, Vec{0.0, 0.0, 0.0}, Vec{.75, .75, .75}, DIFF},         //Back
+	&Sphere{1e5, Vec{50, 40.8, -1e5 + 170}, Vec{0.0, 0.0, 0.0}, Vec{0.0, 0.0, 0.0}, DIFF},  //Frnt
+	&Sphere{1e5, Vec{50, 1e5, 81.6}, Vec{0.0, 0.0, 0.0}, Vec{.75, .75, .75}, DIFF},         //Botm
+	&Sphere{1e5, Vec{50, -1e5 + 81.6, 81.6}, Vec{0.0, 0.0, 0.0}, Vec{.75, .75, .75}, DIFF}, //Top
+	&Sphere{16.5, Vec{27, 16.5, 47}, Vec{0.0, 0.0, 0.0}, Vec{.999, .999, .999}, SPEC},      //Mirr
+	&Sphere{16.5, Vec{73, 16.5, 78}, Vec{0.0, 0.0, 0.0}, Vec{.999, .999, .999}, REFR},      //Glas
+	&Sphere{600, Vec{50, 681.6 - .27, 81.6}, Vec{12, 12, 12}, Vec{0.0, 0.0, 0.0}, DIFF},    //Lite
 }
 
 func Clamp(x float64) float64 {
 	if x > 1.0 {
 		return 1.0
-	} else if x < 0.0 {
+	}
+	if x < 0.0 {
 		return 0.0
 	}
 	return x
 }
 
 func ToByte(x float64) byte {
-	return byte(math.Pow(Clamp(x), 1/2.2)*255 + 0.5)
+	return byte(math.Pow(Clamp(x), 1.0/2.2)*255 + 0.5)
 }
 
-func Intersect(ray *Ray, t *float64, id *int) bool {
-	var d, inf float64
-	inf = 1e50
-	*t = inf
+func Intersect(ray *Ray) (t float64, id int, ok bool) {
+	var d float64
+	t = INF
 	for i, s := range spheres {
 		d = s.Intersect(ray)
-		if d != 0.0 && d < *t {
-			*t = d
-			*id = i
+		if d > EPS && d < t {
+			t = d
+			id = i
 		}
 	}
-	return *t < inf
+	ok = t < INF
+	return
+
 }
 
 func Radiance(ray *Ray, depth int, rnd *rand.Rand) Vec {
 
-	var t, p float64
-	var id int
-	if !Intersect(ray, &t, &id) {
-		return *NULLVEC
+	var p float64
+	t, id, ok := Intersect(ray)
+	if !ok {
+		return Vec{0, 0, 0}
 	}
 	obj := spheres[id]
 	x := Add(ray.Origin, SMul(ray.Direction, t))
-	n := Norm(Sub(x, *obj.Position))
+	n := Norm(Sub(x, obj.Position))
 	var nl Vec
 	if Dot(n, ray.Direction) < 0.0 {
 		nl = n
 	} else {
 		nl = SMul(n, -1.0)
 	}
-	f := *obj.Color
+	f := obj.Color
 	if f.x > f.y && f.x > f.z {
 		p = f.x
 	} else if f.y > f.z {
@@ -246,97 +246,98 @@ func Radiance(ray *Ray, depth int, rnd *rand.Rand) Vec {
 	} else {
 		p = f.z
 	}
-	if depth > 4 {
+
+	depth++
+
+	if depth > 5 {
 		if rnd.Float64() < p {
-			f = SMul(f, 1.0/p)
+			f.SMul(1.0 / p)
 		} else {
-			return *obj.Emission
+			return obj.Emission
 		}
 	}
+
 	if obj.Reflection == DIFF {
-		var r1, r2, r2s float64
-		r1 = 2 * math.Pi * rnd.Float64()
-		r2 = rnd.Float64()
-		r2s = math.Sqrt(r2)
-		var w, u, v, d Vec
-		w = nl
+		r1 := 2 * math.Pi * rnd.Float64()
+		r2 := rnd.Float64()
+		r2s := math.Sqrt(r2)
+		w := nl
+		u := Vec{1.0, 0.0, 0.0}
 		if math.Abs(w.x) > 0.1 {
 			u = Vec{0.0, 1.0, 0.0}
-		} else {
-			u = Vec{1.0, 0.0, 0.0}
 		}
-		v = Cross(w, u)
-		d = Norm(Add(Add(SMul(u, math.Cos(r1)*r2s), SMul(v, math.Sin(r1)*r2s)), SMul(w, math.Sqrt(1-r2))))
-		return Add(*obj.Emission, Mul(f, Radiance(&Ray{x, d}, depth+1, rnd)))
-	} else if obj.Reflection == SPEC {
-		return Add(*obj.Emission, Mul(f, Radiance(&Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}, depth+1, rnd)))
+		v := Cross(w, u)
+		d := SMul(u, math.Cos(r1)*r2s)
+		d.Add(SMul(v, math.Sin(r1)*r2s))
+		d.Add(SMul(w, math.Sqrt(1-r2)))
+		d.Norm()
+		return Add(obj.Emission, Mul(f, Radiance(&Ray{x, d}, depth, rnd)))
 	}
-	var reflRay *Ray = &Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}
-	var into bool = Dot(n, nl) > 0
-	var nc, nt float64 = 1, 1.5
-	var nnt, ddn, cos2t float64
+
+	if obj.Reflection == SPEC {
+		return Add(obj.Emission, Mul(f, Radiance(&Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}, depth, rnd)))
+	}
+
+	reflRay := Ray{x, Sub(ray.Direction, SMul(n, 2*Dot(n, ray.Direction)))}
+	into := Dot(n, nl) > 0
+	nc := 1.0
+	nt := 1.5
+	var nnt float64
 	if into {
 		nnt = nc / nt
 	} else {
 		nnt = nt / nc
 	}
-	ddn = Dot(ray.Direction, nl)
-	cos2t = 1 - nnt*nnt*(1-ddn*ddn)
+	ddn := Dot(ray.Direction, nl)
+	cos2t := 1 - nnt*nnt*(1-ddn*ddn)
 	if cos2t < 0 {
-		return Add(*obj.Emission, Mul(f, Radiance(reflRay, depth+1, rnd)))
+		return Add(obj.Emission, Mul(f, Radiance(&reflRay, depth, rnd)))
 	}
-	var tdir Vec = SMul(ray.Direction, nnt)
+	tdir := SMul(ray.Direction, nnt)
+	var c float64
+	a, b := nt-nc, nt+nc
+	R0 := a * a / (b * b)
 	if into {
 		tdir = Norm(Sub(tdir, SMul(n, ddn*nnt+math.Sqrt(cos2t))))
-	} else {
-		tdir = Norm(Sub(tdir, SMul(n, -(ddn*nnt+math.Sqrt(cos2t)))))
-	}
-	var a, b, c, R0, Re, Tr, P, RP, TP float64
-	a, b = nt-nc, nt+nc
-	R0 = a * a / (b * b)
-	if into {
 		c = 1 + ddn
 	} else {
+		tdir = Norm(Add(tdir, SMul(n, ddn*nnt+math.Sqrt(cos2t))))
 		c = 1 - Dot(tdir, n)
 	}
-	Re = R0 + (1-R0)*c*c*c*c*c
-	Tr = 1 - Re
-	P = .25 + .5*Re
-	RP = Re / P
-	TP = Tr / (1 - P)
-	if depth > 1 {
+	Re := R0 + (1-R0)*c*c*c*c*c
+	Tr := 1 - Re
+	P := 0.25 + 0.5*Re
+	RP := Re / P
+	TP := Tr / (1 - P)
+	if depth > 2 {
 		if rnd.Float64() < P {
-			return Add(*obj.Emission, Mul(f, SMul(Radiance(reflRay, depth+1, rnd), RP)))
-		} else {
-			return Add(*obj.Emission, Mul(f, SMul(Radiance(&Ray{x, tdir}, depth+1, rnd), TP)))
+			return Add(obj.Emission, Mul(f, SMul(Radiance(&reflRay, depth, rnd), RP)))
 		}
+		return Add(obj.Emission, Mul(f, SMul(Radiance(&Ray{x, tdir}, depth, rnd), TP)))
 	}
-	return Add(*obj.Emission, Mul(f, SMul(Add(Radiance(reflRay, depth+1, rnd),
-		Radiance(&Ray{x, tdir}, depth+1, rnd)), Tr)))
+	return Add(obj.Emission, Mul(f, Add(SMul(Radiance(&reflRay, depth, rnd), Re),
+		SMul(Radiance(&Ray{x, tdir}, depth, rnd), Tr))))
 }
 
-var w, h, samps int = 1024, 768, 2
-var cam *Ray
-var colors []Vec
-
 func main() {
+
+	w, h, samps := 1024, 768, 2
+
 	flag.Parse()
-	var cx, cy Vec
-	cam = &Ray{Vec{50, 52, 295.6}, Norm(Vec{0, -0.042612, -1})}
-	colors = make([]Vec, h*w)
 	if flag.NArg() > 0 {
 		samps, _ = strconv.Atoi(flag.Arg(0))
 		samps /= 4
 	}
-
-	start := time.Now()
-
-	cx = Vec{float64(w) * 0.5135 / float64(h), 0.0, 0.0}
-	cy = SMul(Norm(Cross(cx, cam.Direction)), 0.5135)
-
 	fsamps := 1.0 / float64(samps)
+	start := time.Now()
+	cam := Ray{Vec{50, 52, 295.6}, Norm(Vec{0, -0.046, -1})}
+	colors := make([]Vec, h*w)
+	cx := Vec{float64(w) * 0.5135 / float64(h), 0, 0}
+	cy := SMul(Norm(Cross(cx, cam.Direction)), 0.5135)
 	threads_num := runtime.NumCPU()
 	runtime.GOMAXPROCS(threads_num)
+	fmt.Println()
+
 	ch := make(chan int, threads_num)
 	for i := 0; i < threads_num; i++ {
 		go func(i int) {
@@ -366,11 +367,11 @@ func main() {
 								} else {
 									dy = 1 - math.Sqrt(2-r2)
 								}
-								direction = Add(Add(SMul(cx, ((float64(sx)+.5+dx)/2+float64(x))/float64(w)-.5),
-									SMul(cy, ((float64(sy)+.5+dy)/2+float64(y))/float64(h)-.5)), cam.Direction)
-								radiance = Add(radiance, SMul(Radiance(&Ray{Add(cam.Origin, SMul(direction, 140.0)), Norm(direction)}, 0, rnd), fsamps))
+								direction = Add(Add(SMul(cx, ((float64(sx)+0.5+dx)*0.5+float64(x))/float64(w)-0.5),
+									SMul(cy, ((float64(sy)+0.5+dy)*0.5+float64(y))/float64(h)-0.5)), cam.Direction)
+								radiance.Add(SMul(Radiance(&Ray{Add(cam.Origin, SMul(direction, 140.0)), Norm(direction)}, 0, rnd), fsamps))
 							}
-							colors[i] = Add(colors[i], SMul(radiance, 0.25))
+							colors[i].Add(SMul(radiance, 0.25))
 						}
 					}
 				}
@@ -392,4 +393,5 @@ func main() {
 		f.WriteString(fmt.Sprintf("%d %d %d ", ToByte(color.x), ToByte(color.y), ToByte(color.z)))
 	}
 	f.Close()
+
 }
