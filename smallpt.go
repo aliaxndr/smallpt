@@ -315,7 +315,7 @@ func Radiance(ray *Ray, depth int, rnd *rand.Rand) Vec {
 		Radiance(&Ray{x, tdir}, depth+1, rnd)), Tr)))
 }
 
-var w, h, samps int = 1024, 768, 1
+var w, h, samps int = 1024, 768, 2
 var cam *Ray
 var colors []Vec
 
@@ -366,7 +366,7 @@ func main() {
 								} else {
 									dy = 1 - math.Sqrt(2-r2)
 								}
-								direction = Add(Add(SMul(cx, ((float64(sx)*.5+dx)/2+float64(x))/float64(w)-.5),
+								direction = Add(Add(SMul(cx, ((float64(sx)+.5+dx)/2+float64(x))/float64(w)-.5),
 									SMul(cy, ((float64(sy)+.5+dy)/2+float64(y))/float64(h)-.5)), cam.Direction)
 								radiance = Add(radiance, SMul(Radiance(&Ray{Add(cam.Origin, SMul(direction, 140.0)), Norm(direction)}, 0, rnd), fsamps))
 							}
